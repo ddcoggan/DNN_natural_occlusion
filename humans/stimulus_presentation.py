@@ -50,9 +50,9 @@ Comments:
   conditions).
 - Short presentation times and noise-masking were implemented:
     1. to limit extensive recurrent processing by humans, thereby affording  
-       shallower/feedforward models a better chance of modelling responses.
+       shallower/feedforward DNN a better chance of modelling responses.
     2. to more closely align the inflection points in the accuracy/visibility 
-       performance curves of humans and models. Pilot studies showed that, 
+       performance curves of humans and DNN. Pilot studies showed that, 
        if given unlimited time to view an image, humans approach ceiling 
        performance at low visibility levels. At these levels, many CNNs would
        not perform substantially better than chance, limiting the 

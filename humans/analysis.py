@@ -54,15 +54,19 @@ class CFG:
     # occluders
     occluder_classes = [
         'horizontal_bars_04', 'vertical_bars_04', 'oblique_bars_04',
-        'cardinal_crossed_bars', 'oblique_crossed_bars',
-        'polkadot', 'polkasquare', 'mud_splash', 'natural_silhouette']
+        'cardinal_crossed_bars', 'oblique_crossed_bars', 'polkadot',
+        'polkasquare', 'mud_splash', 'natural_silhouette']
+    occluder_labels = [
+        'Bars (hrz.)', 'Bars (vrt.)', 'Bars (obl.)', 'Crossbars (crd.)',
+        'Crossbars (obl.)',
+        'Polkadot', 'Polkasquare', 'Mud splash', 'Natural silhouette']
 
     visibilities = [.1, .2, .4, .6, .8]
     occluder_colors = ['black', 'white']
     plot_colors = [TAB20[i] for i in [
-        0, 1, 2, 3, 6, 7, 16, 17, 10, 11, 8, 9, 12, 13, 18, 19, 4, 5]]
+        0, 1, 2, 3, 6, 7, 16, 17, 14, 15, 8, 9, 12, 13, 18, 19, 10, 11]]
     plot_ecolors = [TAB20[i] for i in [
-        1, 0, 3, 2, 7, 6, 17, 16, 11, 10, 9, 8, 13, 12, 19, 18, 5, 4]]
+        1, 0, 3, 2, 7, 6, 17, 16, 15, 14, 9, 8, 13, 12, 19, 18, 11, 10]]
 
     # all condition combinations
     occ_vis_combos = itp(occluder_classes, visibilities)
