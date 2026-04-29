@@ -1,19 +1,20 @@
 ## Overview
 
 This repository contains model weights, human behavioral data, and 
-experiment and analysis code for the upcoming paper:
+experiment and analysis code for the paper:
 
 "Exposure to naturalistic occlusion promotes generalized, human-like 
 robustness in deep neural networks" by David D. Coggan and Frank Tong
+([preprint](https://doi.org/10.64898/2026.04.23.720370))
 
 This paper shows that, relative to standard training datasets, those 
 augmented with simple but artificial forms of occlusion cause DNNs to diverge 
-from human patterns of performance and does not generalize well when 
+from human patterns of performance and do not generalize well when 
 tested with naturalistic occlusion. Conversely, applying naturalistic occlusion 
 to training images leads to more human-like patterns of performance and better 
 generalization to novel forms of occlusion outside the 
 training distribution. These findings suggest that human robustness to visual 
-occlusion arises not because of our extensive experience with partial object 
+occlusion arises not because of our extensive exposure to partial object 
 views, which occur under any form of occlusion, but rather because of our 
 experience with disentangling real objects that occlude one another in the 
 visual field. They also suggest that artificial forms of occlusion similar 
