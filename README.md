@@ -29,21 +29,29 @@ The code was written and tested using Python 3.11. To install dependencies, run:
 
 `pip install -r requirements.txt`
 
-DNN weights can be added by running `download_weights.py`. The download is 
-a single zip file ~27GB, which is then unpacked and organized into the 
-appropriate model directories.
+All plots and statistical results used in the paper are already included 
+under `DNN/evaluation/figures`, but can be reproduced by running 
+`DNN/evaluation/make_figures.py`. The underlying performance data for each 
+DNN in each experiment is included in the `DNN/models` directory. DNN 
+weights can be added by running `download_weights.py`, although these are 
+not necessary for reproducing the results. The script downloads a single zip 
+file (~27GB), which is then unpacked and organized into the appropriate model 
+directories.
 
-## Occlusion training
+## Visual Occluders Dataset
 
 The Visual Occluders Dataset used in this study can be obtained 
 [here](https://github.com/ddcoggan/VisualOccludersDataset), along with code 
 for generating datasets of occluded images or augmenting images with 
 occlusion as they are loaded during DNN training or evaluation.
 
+## Training Your Own DNNs
 To train your own DNNs with occlusion, you can use my model trainer 
 (https://github.com/ddcoggan/model_trainer) to perform training jobs 
-specified in a config file 
-([example](DNN/models/original/cornet_s_plus/natural/cfg.json)).
+configured in a json file (see this [example]
+(DNN/models/original/cornet_s_plus/natural/args.json)). You will need the 
+Visual Occluders Dataset or your own dataset of occluders with the same file 
+structure.
 
 
 
