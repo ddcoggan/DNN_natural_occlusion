@@ -19,10 +19,10 @@ curve_params_path = 'robustness_curves.parquet'
 noise_ceiling_path = 'noise_ceiling.csv'
 
 def main():
-    #get_human_data()
-    #fit_performance_curves()
+
+    fit_performance_curves()
     make_plots()
-    #calculate_noise_ceiling()
+    calculate_noise_ceiling()
 
 
 class CFG:
@@ -88,7 +88,6 @@ class CFG:
         class_dir in class_dirs]
     """
     subjects = [f'sub-{i:02}' for i in range(30)]
-
 
 
 def fit_performance_curves():
@@ -272,7 +271,6 @@ def condwise_robustness_plot_array(df, outpath, ylabel,
             linestyles='None')
 
 
-
 def condwise_robustness_plot_array_long(
         df, outpath, ylabel, df_curves=None, yticks=(0,1), ylims=(0,1),
         chance=None, legend_path=None, sizes=['small']):
@@ -386,7 +384,7 @@ def calculate_noise_ceiling():
     reliability of performance across conditions. This is
     calculated as the mean correlation between each participant's performance
     profile and that of the remaining group (lower bound) and entire group
-    (upper bound).
+    (upper bound). The MSE is also calculated as a complementary metric.
     """
 
     trials = pd.read_parquet(trials_path)
@@ -423,7 +421,7 @@ def calculate_noise_ceiling():
                               .agg('mean', numeric_only=True)
                               .reset_index())
 
-        # condition-wise accuracy correlation
+        # condition-wise accuracy correlation and MSE
         subject_trials = trials_subject_occ[
             groupby + ['subject_accuracy']]
         rem_grp_trials = trials_rem_grp_occ[
@@ -441,15 +439,25 @@ def calculate_noise_ceiling():
             .groupby(groupby)
             .agg('mean', numeric_only=True))
 
+        # Pearson correlation
         lwr = np.corrcoef(subject_rem_grp.subject_accuracy,
                           subject_rem_grp.group_accuracy)[0, 1]
         upr = np.corrcoef(subject_grp.subject_accuracy,
                           subject_grp.group_accuracy)[0, 1]
         nc_df = pd.concat([nc_df, pd.DataFrame(dict(
             subject=[subject],
-            metric=['accuracy'],
-            level=['condition-wise'],
-            metric_sim=['cond_pearson_r'],
+            metric_sim=['Pearson R'],
+            lwr=[lwr],
+            upr=[upr]))])
+
+        # MSE
+        lwr = ((subject_rem_grp.subject_accuracy -
+                subject_rem_grp.group_accuracy) ** 2).mean()
+        upr = ((subject_grp.subject_accuracy -
+                subject_grp.group_accuracy) ** 2).mean()
+        nc_df = pd.concat([nc_df, pd.DataFrame(dict(
+            subject=[subject],
+            metric_sim=['MSE'],
             lwr=[lwr],
             upr=[upr]))])
 
