@@ -44,12 +44,12 @@ plt.rcParams.update({
 
 def main():
 
-    #image_samples()
-    #robustness()
-    #human_likeness()
-    #performance_equated()
-    #occlusion_strength()
-    #other_occluders()
+    image_samples()
+    robustness()
+    human_likeness()
+    performance_equated()
+    occlusion_strength()
+    other_occluders()
     other_distortions()
 
 
@@ -65,8 +65,7 @@ training_augmentations = ['no_occlusion', 'natural',
     'natural_silhouette', 'artificial_1', 'artificial_2',
 ]
 
-# datasets
-imagenet_dir = '/Users/david/data/datasets/images/ILSVRC2012/train'
+# visual occluders dataset
 vod = op.expanduser(f'~/PycharmProjects/VisualOccludersDataset'
                     f'/VisualOccludersDataset')
 visibilities = np.arange(10, 100, 10)
@@ -171,11 +170,11 @@ occluders = [
 
 def image_samples():
 
+    imagenet_dir = '/Users/david/data/datasets/images/ILSVRC2012/train'
     out_dir = 'figures/image_samples'
     os.makedirs(out_dir, exist_ok=True)
 
     # list random objects
-
     imagenet_classes = sorted(os.listdir(imagenet_dir))
     np.random.seed(8)
     random_classes = np.random.choice(imagenet_classes, size=6, replace=False)
@@ -583,11 +582,10 @@ def robustness():
         #    color=nat_col, ha='right', fontstyle='italic')
 
         # lower bound
-        unocc_score = (rob[(
-                                       rob.training_augmentation == 'no_occlusion') & (
-                                   rob.test_set == test_aug)].score.mean())
+        unocc_score = (rob[(rob.training_augmentation == 'no_occlusion') &
+                           (rob.test_set == test_aug)].score.mean())
         unocc_col = colors_aug['no_occlusion']['edgecolor']
-        ax.axhline(y=unocc_score, xmax=.15, color=unocc_col, zorder=3, \
+        ax.axhline(y=unocc_score, xmax=.15, color=unocc_col, zorder=3,
             ls='dashed')
         # ax.text(3.5, unocc_score + .01, 'no occlusion training', size=8,
         #    color=unocc_col, ha='right', fontstyle='italic')
@@ -600,8 +598,8 @@ def robustness():
             rob_model = rob[rob.architecture == arch]
             color = edgecolor = colors_aug[train_aug]['color']
             yval = rob_model[
-                (rob_model.training_augmentation == train_aug) & (
-                        rob_model.test_set == test_aug)].score.mean()
+                (rob_model.training_augmentation == train_aug) &
+                (rob_model.test_set == test_aug)].score.mean()
             ax.bar(x_pos, yval, color=color, edgecolor=edgecolor,
                 linewidth=1, zorder=2)
 
@@ -618,9 +616,9 @@ def robustness():
             #    color=nat_col, ha='right', fontstyle='italic')
 
             # lower bound
-            unocc_score = (rob_model[(
-                                                 rob_model.training_augmentation == 'no_occlusion') & (
-                                                 rob_model.test_set == test_aug)].score.mean())
+            unocc_score = (rob_model[
+                (rob_model.training_augmentation == 'no_occlusion') &
+                (rob_model.test_set == test_aug)].score.mean())
             unocc_col = colors_aug['no_occlusion']['edgecolor']
             ax.axhline(y=unocc_score, xmin=x_min, xmax=x_max,
                 color=unocc_col, zorder=3, ls='dashed')
@@ -1225,12 +1223,12 @@ def human_likeness():
         post_hocs.to_csv(f'{outdir}/posthocs-2_{metric}.csv', index=False)
 
         # 1-way ANOVA with factor training augmentation
-        anova = AnovaRM(df, depvar='z', subject='subject',
-            within=['training_augmentation'],
-            aggregate_func='mean').fit().anova_table
-        post_hocs = pg.pairwise_tests(dv='z', subject='subject',
-            within=['training_augmentation'], data=df, padjust='holm')
+        anova = pg.rm_anova(df, dv='z', subject='subject',
+            within='training_augmentation', detailed=True)
         anova.to_csv(f'{outdir}/anova-1_{metric}.csv')
+        post_hocs = pg.pairwise_tests(dv='z', subject='subject',
+            within=['training_augmentation'], data=df, padjust='holm',
+            effsize='cohen')
         post_hocs.to_csv(f'{outdir}/posthocs-1_{metric}.csv',
             index=False)
 
@@ -1532,12 +1530,12 @@ def performance_equated():
         post_hocs.to_csv(f'{outdir}/posthocs-2_{metric}.csv', index=False)
 
         # 1-way ANOVA with factor training augmentation
-        anova = AnovaRM(df, depvar='z', subject='subject',
-            within=['training_augmentation'],
-            aggregate_func='mean').fit().anova_table
-        post_hocs = pg.pairwise_tests(dv='z', subject='subject',
-            within=['training_augmentation'], data=df, padjust='holm')
+        anova = pg.rm_anova(df, dv='z', subject='subject',
+            within='training_augmentation', detailed=True, correction=True)
         anova.to_csv(f'{outdir}/anova-1_{metric}.csv')
+        post_hocs = pg.pairwise_tests(dv='z', subject='subject',
+            within=['training_augmentation'], data=df, padjust='holm',
+            effsize='cohen')
         post_hocs.to_csv(f'{outdir}/posthocs-1_{metric}.csv', index=False)
 
 
@@ -1667,8 +1665,8 @@ def occlusion_strength():
             'yticks': [-1, -.5, 0, .5, 1],
             'ylabel': r"Pearson's $r$"},
         'MSE': {
-            'ylims': (.25, 0),
-            'yticks': [.25, .20, .15, .1, .05, 0],
+            'ylims': (0, .3),
+            'yticks': [0,  .1, .2, .3],
             'ylabel': 'MSE'}
         }.items():
         
@@ -1697,10 +1695,7 @@ def occlusion_strength():
                 sns.stripplot(x=xpos, y=points, zorder=3, clip_on=False,
                     native_scale=True, dodge=True, ax=ax, color='tab:grey',
                     size=1.5, alpha=.5, linewidth=0, edgecolor='None')
-                if metric == 'MSE':
-                    bottom, bar_height = np.mean(points), 1
-                else:
-                    bottom, bar_height = 0, np.mean(points)
+                bottom, bar_height = 0, np.mean(points)
                 ax.bar(xpos, bar_height, bottom=bottom, color=color,
                     edgecolor=edgecolor, linewidth=linewidth, zorder=2)
                 ax.errorbar(xpos, np.mean(points), stats.sem(points), color='k',
@@ -1708,8 +1703,7 @@ def occlusion_strength():
             ax.fill_between((-1, 20), lower_bound, upper_bound,
                 color='tab:gray', alpha=0.5, lw=0, zorder=1)
             ax.set_ylabel(p['ylabel'], size=6)
-            ax.set_yticks(p['yticks'], labels=[f'{i:.1f}' for i in p[
-                'yticks']], size=6)
+            ax.set_yticks(p['yticks'], labels=p['yticks'], size=6)
             ax.set_ylim(p['ylims'])
             ax.grid(axis='y', linestyle='solid', alpha=.25, zorder=0,
                 clip_on=False)
@@ -1731,7 +1725,6 @@ def occlusion_strength():
         fig.savefig(op.join(outdir, f'{metric}.pdf'))
         fig.savefig(op.join(outdir, f'{metric}.png'))
         plt.close()
-
 
 
 def other_occluders():
@@ -1808,7 +1801,6 @@ def other_occluders():
     fig.savefig(op.join(outdir, f'artificial_natural.pdf'))
     fig.savefig(op.join(outdir, f'artificial_natural.png'))
     plt.close()
-
 
 
 def other_distortions():

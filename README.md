@@ -30,7 +30,10 @@ performance data for each DNN in each experiment is included in the
 
 ## Setup
 The code was written and tested using Python 3.11. To install dependencies, run:
-`pip install -r requirements.txt`. 
+`pip install -r requirements.txt`. This repository was developed on a Mac 
+Studio (2022) with Apple M1 Max CPU and Tahoe 26.5 macOS. On this machine, 
+the repository takes a few seconds to download and ~2 minutes install 
+dependencies.
 
 ## Model weights and experimental stimuli
 These can be added by running `downloads.py`, although this is 
