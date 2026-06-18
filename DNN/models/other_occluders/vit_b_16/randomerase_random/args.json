@@ -1,0 +1,40 @@
+{
+    "amp": true,
+    "architecture": "vit_b_16",
+    "architecture_args": {},
+    "batch_dependence": false,
+    "batch_size": 512,
+    "checkpoint": 0,
+    "criterion": "CrossEntropyLoss",
+    "cutmix": false,
+    "dataset": "ILSVRC2012",
+    "finetune": false,
+    "finetune_args": {},
+    "image_size": 224,
+    "mixup": false,
+    "model_dir": "/home/tonglab/david/models/vit_b_16/re-random_xform-cont-weak-resize",
+    "num_epochs": 300,
+    "num_views": 1,
+    "optimizer": "AdamW",
+    "optimizer_args": {
+        "lr": 0.003,
+        "weight_decay": 0.3
+    },
+    "primary_metric": "CrossEntropyLoss",
+    "randomerase": "random",
+    "save_interval": null,
+    "scheduler": "CosineAnnealingLR",
+    "scheduler_args": {
+        "T_max": 270,
+        "eta_min": 0
+    },
+    "swa": null,
+    "transform_type": "contrastive-weak-resize",
+    "video": false,
+    "view_dependence": false,
+    "warmup_scheduler": "LinearLR",
+    "warmup_scheduler_args": {
+        "start_factor": 0.033,
+        "total_iters": 30
+    }
+}

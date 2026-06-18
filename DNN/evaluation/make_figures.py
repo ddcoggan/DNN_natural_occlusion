@@ -44,7 +44,7 @@ plt.rcParams.update({
 
 def main():
 
-    image_samples()
+    #image_samples()
     robustness()
     human_likeness()
     performance_equated()

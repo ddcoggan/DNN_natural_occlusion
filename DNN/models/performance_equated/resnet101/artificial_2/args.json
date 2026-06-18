@@ -1,0 +1,73 @@
+{
+    "Occlusion": {
+        "color": "random",
+        "form": [
+            "curved_lines",
+            "straight_lines",
+            "empty_rectangles",
+            "filled_rectangles",
+            "empty_triangles",
+            "filled_triangles",
+            "empty_ellipses",
+            "filled_ellipses"
+        ],
+        "occluder_dir": "/home/tonglab/Datasets/VisualOccludersDataset",
+        "probability": 1,
+        "random_resize": true,
+        "views": [
+            0
+        ],
+        "vis_probs": [
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.1,
+            0.5
+        ],
+        "visibility": [
+            0.5,
+            0.6,
+            0.7,
+            0.8,
+            0.9,
+            1.0
+        ]
+    },
+    "amp": true,
+    "architecture": "resnet101",
+    "architecture_args": {},
+    "batch_dependence": false,
+    "batch_size": 32,
+    "checkpoint": 0,
+    "criterion": "CrossEntropyLoss",
+    "cutmix": null,
+    "dataset": "ILSVRC2012",
+    "finetune": true,
+    "finetune_args": {
+        "finetune_dir": "occ-art3",
+        "starting_params": "/home/tonglab/david/models/resnet101/xform-cont-weak-resize/params/090.pt"
+    },
+    "image_size": 224,
+    "mixup": false,
+    "model_dir": "/home/tonglab/david/models/resnet101/xform-cont-weak-resize/finetuning/occ-art3",
+    "num_epochs": 1,
+    "num_views": 1,
+    "optimizer": "SGD",
+    "optimizer_args": {
+        "lr": 0.005,
+        "momentum": 0.9
+    },
+    "primary_metric": "acc1",
+    "randomerase": false,
+    "save_interval": 0.1,
+    "scheduler": "StepLR",
+    "scheduler_args": {
+        "gamma": 0.1,
+        "step_size": 30
+    },
+    "swa": null,
+    "transform_type": "contrastive-weak-resize",
+    "video": false,
+    "view_dependence": false
+}
