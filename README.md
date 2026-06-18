@@ -29,11 +29,14 @@ performance data for each DNN in each experiment is included in the
 `humans/trials.parquet`.
 
 ## Setup
-The code was written and tested using Python 3.11. To install dependencies, run:
+The analysis code was written and tested using Python 3.11. To install 
+dependencies, run:
 `pip install -r requirements.txt`. This repository was developed on a Mac 
 Studio (2022) with Apple M1 Max CPU and Tahoe 26.5 macOS. On this machine, 
-the repository takes a few seconds to download and ~2 minutes install 
-dependencies.
+the repository takes a few seconds to download and ~2 minutes to 
+download and install dependencies. A GPU is not necessary to run any 
+analysis code, as the model responses/performance is already contained in 
+the repository.
 
 ## Model weights and experimental stimuli
 These can be added by running `downloads.py`, although this is 
@@ -44,14 +47,22 @@ human behavioral experiments (~0.5GB) and places them under `humans/images`.
 
 ## Visual Occluders Dataset
 The Visual Occluders Dataset used in this study can be obtained 
-[here](https://github.com/ddcoggan/VisualOccludersDataset), along with code 
-that applies it to image datasets.
+[here](https://github.com/ddcoggan/VisualOccludersDataset), along with code that applies it to image datasets.
 
 ## Training your own DNNs
-To train your own DNNs with occlusion, you can use my [model trainer](https://github.com/ddcoggan/model_trainer) to perform training jobs 
-configured in a json file (see this [example](DNN/models/original/cornet_s_plus/natural/args.json)). You will need the 
+To train your own DNNs with occlusion, you can use my [model trainer](https://github.com/ddcoggan/model_trainer) to perform training jobs configured in a json file (see this [example](DNN/models/original/cornet_s_plus/natural/args.json)). You will need the 
 Visual Occluders Dataset or your own dataset of occluders with the same file 
 structure.
+
+## Evaluating your own DNNs
+To evaluate your own DNNs on the same experiments as in the paper, you can 
+use the code in `DNN/evaluation`. To evaluate DNN-human similarity, run 
+`evaluate_human_likeness.py`, ensuring you adapt to code to load your model 
+and weights. To evaluate robustness, run 
+`imagenet_occluded.py`, ensuring you have the ImageNet-1K validation set 
+and the Visual Occluders Dataset. Depending on your needs and 
+computational resources, you can either pre-apply occluders to the 
+validation set or apply these on the fly during evaluation. See the documentation included in this file for more information.
 
 
 

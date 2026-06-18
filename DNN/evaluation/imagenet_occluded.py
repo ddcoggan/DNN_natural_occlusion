@@ -38,13 +38,20 @@ DATASETS = [i[len(DATASET_BASE) + 1:] for i in sorted(glob.glob(
 
 
 def make_dataset(overwrite=False, num_procs=1):
+    """ This creates the ImageNet-Occluded dataset, i.e., for each occluder
+    type and visibility level in the Visual Occluders Dataset, it creates a
+    version of the ImageNet validation set with those occluders randomly
+    applied. This will take up a lot of disk space, but substantially
+    improves evaluation speed once generated, and so is recommended if you
+    intend to evaluate many models on the entire dataset. Alternatively,
+    you can choose to apply occlusion on the fly during evaluation, but this
+    will be much slower. """
 
-    in_dir = '/home/tonglab/Datasets/occluders'
-    imagenet_dir = '/home/tonglab/Datasets/ILSVRC2012/val'
-    #out_dir = '/home/tonglab/david/datasets/images/ImageNet-Occluded'
-    out_dir = '/home/tonglab/Datasets/ImageNet-Occluded'
+    vod_dir = '/Users/david/PycharmProjects/VisualOccludersDataset'
+    imagenet_dir = '/Users/david/PycharmProjects/ILSVRC2012/val'
+    out_dir = '/Users/david/PycharmProjects/ImageNet-Occluded'
     os.makedirs(out_dir, exist_ok=True)
-    occs = [op.basename(i) for i in glob.glob(f'{in_dir}/*')]
+    occs = [op.basename(i) for i in glob.glob(f'{vod_dir}/*')]
     viss = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
     def _make_dataset(occ, vis):
@@ -57,7 +64,7 @@ def make_dataset(overwrite=False, num_procs=1):
             transforms.CenterCrop(224),
             Occlude(args=SimpleNamespace(image_size=(224, 224), Occlusion=dict(
                 form=occ, probability=1, visibility=vis, color='random',
-                occluder_dir=in_dir)))])
+                occluder_dir=vod_dir)))])
 
         for synset in sorted(glob.glob(f'{imagenet_dir}/*')):
             dataset = CustomDataset(synset, transform=transform)

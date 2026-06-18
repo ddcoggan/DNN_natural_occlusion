@@ -41,7 +41,6 @@ from utils.get_activations import get_activations
 from utils.math_functions import sigmoid
 from utils.plot_utils import custom_defaults
 plt.rcParams.update(custom_defaults)
-sys.path.append(op.expanduser('~/david/projects/p022_occlusion'))
 from humans.analysis import CFG
 from humans.analysis import condwise_robustness_plot_array
 
@@ -81,86 +80,6 @@ def get_transform(architecture, model_dir):
     return transform
 
 
-def train_svc(model_dir, architecture, batch_size, layer, m='?',
-              total_models='?', num_procs=8, overwrite=False):
-
-    if layer == 'output':
-        return False
-
-    transfer_dir = op.join(MODEL_BASE, model_dir, RES_DIR,
-                           'transfer_learning')
-    os.makedirs(transfer_dir, exist_ok=True)
-
-    # check if old format of svc file exists, where all layers are combined
-    svc_path = op.join(op.dirname(transfer_dir), 'SVC.pkl')
-    if op.isfile(svc_path):
-        with open(svc_path, 'rb') as f:
-            svcs = pkl.load(f)
-        layers = set([k.split('_')[0] for k in svcs.keys()])
-        for layer in layers:
-            new_svcs = {k: v for k, v in svcs.items() if k.startswith(layer)}
-            with open(op.join(transfer_dir, f'{layer}.pkl'), 'wb') as f:
-                pkl.dump(new_svcs, f)
-        os.remove(svc_path)
-    svc_contents_path = op.join(op.basename(transfer_dir), 'SVC_contents.csv')
-    if op.isfile(svc_contents_path):
-        os.remove(svc_contents_path)
-
-    # do PCA and SVC inside function to free memory
-    def pca_svc(layer, out_path):
-
-        print(f'{now()} | Performing transfer learning for model '
-              f'{m + 1}/{total_models}, {model_dir}, layer: {layer}')
-
-        transform = get_transform(architecture, model_dir)
-        svcs = {}
-
-        # use PCA for dimensionality reduction
-        print(f'{now()} | Running PCA...')
-        pca_images = pd.read_csv('utils/PCA_images.csv').filepath.values
-        model = get_trained_model(model_dir, architecture, True, layer)
-        activations = get_activations(
-            model, architecture, pca_images, layers=layer,
-            num_workers=num_procs, batch_size=batch_size,
-            transform=transform, shuffle=True)
-        activations = insert_cycle(activations)
-        for cyc, activ in activations[layer].items():
-            svcs[cyc] = {'pca': PCA().fit(activ.reshape([len(pca_images), -1]))}
-
-        # train a support vector machine on responses to the training set
-        print(f'{now()} | Running SVC...')
-        svc_dataset = pd.read_csv('utils/SVC_images.csv')
-        svc_images = svc_dataset['filepath'].values
-        sampler = np.random.permutation(len(svc_images))
-        svc_classes = [svc_dataset.object_class.values[s] for s in sampler]
-        model = get_trained_model(model_dir, architecture, True, layer)
-        activations = get_activations(
-            model, architecture, svc_images, num_workers=num_procs,
-            batch_size=batch_size, layers=layer, transform=transform,
-            sampler=sampler)
-        activations = insert_cycle(activations)
-        for cyc, activ in activations[layer].items():
-            pca_weights = svcs[cyc]['pca'].transform(
-                activ.reshape((len(svc_images), -1)))[:, :1000]
-            clf = OneVsRestClassifier(BaggingClassifier(
-                SVC(kernel='linear', probability=True),
-                max_samples=1 / num_procs, n_estimators=num_procs))
-            clf.fit(pca_weights, svc_classes)
-            train_acc = np.mean(clf.predict(pca_weights) == svc_classes)
-            svcs[cyc]['svc'] = clf
-            print(f'{now()} | Training accuracy ({cyc}): {train_acc:.4f}')
-
-        with open(out_path, 'wb') as f:
-            pkl.dump(svcs, f)
-
-    transfer_path = op.join(transfer_dir, f'{layer}.pkl')
-    if overwrite or not op.isfile(transfer_path):
-        pca_svc(layer, transfer_path)
-        gc.collect()
-        return True
-    return False
-
-
 def load_trials(drop_human=False, model_dir=None):
     if model_dir is None:
         trials = pd.read_parquet(f'humans/trials.parquet')
@@ -191,8 +110,8 @@ def list_images():
     return images
 
 
-def get_responses(model_dir, architecture, layers, batch_size, m=0,
-                  total_models=0, num_procs=1, overwrite=False):
+def get_responses(model_dir, architecture, layers=('output'), batch_size=64,
+                  m=0, total_models=0, num_procs=1, overwrite=False):
 
     results_dir = op.join(MODEL_BASE, model_dir, RES_DIR)
     os.makedirs(results_dir, exist_ok=True)
@@ -481,20 +400,6 @@ def analyse_performance(model_dir, m=0, total_models=0,
     mod_str = f'model {m + 1}/{total_models} at {model_dir}'
     groupby = ['layer', 'cycle']
 
-    # fit performance curves
-    curves_path = f'{results_dir}/robustness_curves.parquet'
-    existing_curves = existing_results(curves_path, layers, overwrite)
-    if existing_curves is not True:
-        print(f'{now()} | Analysing performance curves (exp1) | {mod_str}')
-        trials_model = reshape_metrics(
-            load_trials(model_dir=model_dir), shape='long')
-        curves = (trials_model
-                  .groupby(groupby)
-                  .apply(fit_visibility_curves)
-                  .reset_index(groupby))
-        curves = pd.concat([existing_curves, curves]).reset_index(drop=True)
-        curves.to_parquet(curves_path, index=False)
-
     # measure human likeness
     likeness_path = f'{results_dir}/human_likeness.parquet'
     existing_likeness = existing_results(likeness_path, layers, overwrite)
@@ -503,16 +408,15 @@ def analyse_performance(model_dir, m=0, total_models=0,
         trials_human = load_trials(drop_human=False)
         trials_model = reshape_metrics(load_trials(model_dir=model_dir),
                                        shape='long')
-
         likeness = (trials_model
             .groupby(groupby)
             .apply(measure_human_likeness, trials_human)
             .reset_index(level=groupby[:-1]))
-
         likeness = pd.concat([existing_likeness, likeness]).reset_index(drop=True)
         likeness.to_parquet(likeness_path, index=False)
 
-
-
+if __name__ == '__main__':
+    get_responses(model_dir='alexnet/pretrained', architecture='alexnet')
+    analyse_performance(model_dir='alexnet/pretrained', m=1)
 
 
