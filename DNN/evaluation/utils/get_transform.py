@@ -16,7 +16,7 @@ def get_transform(architecture, model_dir):
     transform = transforms.Compose([
         transforms.ToImage(),
         transforms.ToDtype(float32, scale=True),
-        transforms.Resize(224),
+        transforms.Resize(224, antialias=True),
         transforms.CenterCrop(224),  # in case resize is off by a pixel
         transforms.Normalize(mean=[0.485, 0.456, 0.406],
                              std=[0.229, 0.224, 0.225])
