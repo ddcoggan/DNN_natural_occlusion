@@ -1,5 +1,7 @@
 '''
-This script tests the accuracy of ANNs on public benchmarks
+This script tests the accuracy of ANNs on ImageNet-Occluded, which is a collection of ImageNet validation sets, each
+one applied with a different occluder type and visibility level in the Visual Occluders Dataset, which can be obtained
+at https://github.com/ddcoggan/VisualOccludersDataset.
 '''
 
 import os
@@ -26,32 +28,26 @@ from utils.plot_utils import custom_defaults
 from utils.Occlude import Occlude
 from utils.CustomDataset import CustomDataset
 from utils.get_transform import get_transform
-from utils.load_benchmark_scores import load_benchmark_scores
+from utils import MODEL_BASE
 plt.rcParams.update(custom_defaults)
 
 np.random.seed(42)
 
 BENCHMARK = 'ImageNet-Occluded'
-DATASET_BASE = '/Users/david/Datasets/ImageNet-Occluded'
-DATASETS = [i[len(DATASET_BASE) + 1:] for i in sorted(glob.glob(
-            f'{DATASET_BASE}/*/*'))]
-
+VOD_PATH = '/home/david/Datasets/VisualOccludersDataset/VisualOccludersDataset'  # required (dir containing occluders, not top-level dir of repo)
+IMAGENET_PATH = '/home/david/Datasets/ILSVRC2012/val'  # required
+PREAPPLIED_PATH = '/home/david/Datasets/ImageNet-Occluded'  # optional
+DATASETS = [i.split('Dataset/')[-1] for i in sorted(glob.glob(
+        f'{VOD_PATH}/*/*'))]
 
 def make_dataset(overwrite=False, num_procs=1):
-    """ This creates the ImageNet-Occluded dataset, i.e., for each occluder
-    type and visibility level in the Visual Occluders Dataset, it creates a
-    version of the ImageNet validation set with those occluders randomly
-    applied. This will take up a lot of disk space, but substantially
-    improves evaluation speed once generated, and so is recommended if you
-    intend to evaluate many models on the entire dataset. Alternatively,
-    you can choose to apply occlusion on the fly during evaluation, but this
-    will be much slower. """
+    """ This creates and stores the ImageNet-Occluded dataset on disk, which can speed up evaluation time significantly
+    at the cost of disk space (~130GB). It is optional and only recommended if you intend to evaluate many models.
+    Otherwise, you can apply occlusion on the fly during evaluation. This requires no additional disk space, but each
+    evaluation run will take several times longer to complete, depending on your hardware. """
 
-    vod_dir = '/Users/david/PycharmProjects/VisualOccludersDataset'
-    imagenet_dir = '/Users/david/PycharmProjects/ILSVRC2012/val'
-    out_dir = '/Users/david/PycharmProjects/ImageNet-Occluded'
-    os.makedirs(out_dir, exist_ok=True)
-    occs = [op.basename(i) for i in glob.glob(f'{vod_dir}/*')]
+    os.makedirs(PREAPPLIED_PATH, exist_ok=True)
+    occs = [op.basename(i) for i in glob.glob(f'{VOD_PATH}/*')]
     viss = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
     def _make_dataset(occ, vis):
@@ -64,14 +60,14 @@ def make_dataset(overwrite=False, num_procs=1):
             transforms.CenterCrop(224),
             Occlude(args=SimpleNamespace(image_size=(224, 224), Occlusion=dict(
                 form=occ, probability=1, visibility=vis, color='random',
-                occluder_dir=vod_dir)))])
+                occluder_dir=VOD_PATH)))])
 
-        for synset in sorted(glob.glob(f'{imagenet_dir}/*')):
+        for synset in sorted(glob.glob(f'{IMAGENET_PATH}/*')):
             dataset = CustomDataset(synset, transform=transform)
             loader = DataLoader(dataset, batch_size=50, shuffle=False,
                 num_workers=num_procs, multiprocessing_context='fork')
             synset_name = op.basename(synset)
-            out_dir_synset = op.join(out_dir, occ, str(vis_perc), synset_name)
+            out_dir_synset = op.join(PREAPPLIED_PATH, occ, str(vis_perc), synset_name)
             os.makedirs(out_dir_synset, exist_ok=True)
             in_images = sorted(glob.glob(f'{synset}/*'))
             image_names = [op.basename(i) for i in in_images]
@@ -87,17 +83,39 @@ def make_dataset(overwrite=False, num_procs=1):
     )
 
 
+def load_scores(model_dir, overwrite=False):
+
+    results_dir = op.join(MODEL_BASE, model_dir)
+    os.makedirs(results_dir, exist_ok=True)
+
+    out_path = f'{results_dir}/occlusion_robustness.csv'
+    if not op.isfile(out_path) or overwrite:
+        results = pd.DataFrame()
+    else:
+        results = pd.read_csv(out_path)
+
+    return results, out_path
+
+
 @torch.no_grad()
 def score_model(model_dir, architecture, batch_size, m=0, total_models=0, num_procs=1,
                 overwrite=False):
 
-    results, out_path = load_benchmark_scores(
-        model_dir, BENCHMARK, overwrite)
+    """ If the dataset is not found at the stated path, occlusion will be applied on the fly. """
+    preapplied = op.isdir(PREAPPLIED_PATH)
+    if preapplied:
+        print(f'ImageNet-Occluded found on disk at {PREAPPLIED_PATH}')
+    else:
+        print(f'{PREAPPLIED_PATH} does not exist, occluders will be applied on the fly during evaluation.')
+
+    results, out_path = load_scores(
+        model_dir, overwrite)
 
     if results.empty:
         subsets_to_run = DATASETS
     else:
-        subsets_to_run = [i for i in DATASETS if i not in results.path.unique()]
+        existing_results = [f'{row.occluder_type}/{int(row.visibility*100)}' for row in results.iterrows()]
+        subsets_to_run = [i for i in DATASETS if i not in existing_results]
 
     if not len(subsets_to_run):
         return False
@@ -109,13 +127,24 @@ def score_model(model_dir, architecture, batch_size, m=0, total_models=0, num_pr
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     model.to(device)
     model.eval()
-    transform = get_transform(architecture, model_dir)
 
     for subset in subsets_to_run:
         occ, vis_perc = subset.split('/')
         vis = float(vis_perc)/100
-        dataset = ImageFolder(op.join(DATASET_BASE, subset),
-                              transform=transform)
+        if preapplied:
+            transform = get_transform(architecture, model_dir)
+            dataset = ImageFolder(op.join(PREAPPLIED_PATH, subset),
+                                  transform=transform)
+        else:
+            transform = transforms.Compose([
+                transforms.ToImage(),
+                transforms.ToDtype(float32, scale=True),
+                transforms.Resize(224),
+                transforms.CenterCrop(224),
+                Occlude(args=SimpleNamespace(image_size=(224, 224), Occlusion=dict(
+                    form=occ, probability=1, visibility=vis, color='random',
+                    occluder_dir=VOD_PATH)))])
+            dataset = ImageFolder(IMAGENET_PATH, transform=transform)
         loader = DataLoader(dataset, batch_size=batch_size,
                             shuffle=True, num_workers=num_procs)
 
@@ -150,13 +179,12 @@ def score_model(model_dir, architecture, batch_size, m=0, total_models=0, num_pr
 
         # save results
         for cycle, perf in performance.items():
-            level_1, level_2 = subset.split(f'{DATASET_BASE}/')[-1].split('/')
+            level_1, level_2 = subset.split('/')[-2:]
             new_results = pd.DataFrame({
                 'benchmark': [BENCHMARK],
-                'path': [subset],
                 'cycle': [int(cycle[3:])],
-                'level_1': [level_1],
-                'level_2': [str(vis)[:3]],
+                'occluder_type': [level_1],
+                'visibility': [str(vis)[:3]],
                 'metric': ['accuracy'],
                 'score': [perf.avg_epoch]
             })
@@ -167,3 +195,27 @@ def score_model(model_dir, architecture, batch_size, m=0, total_models=0, num_pr
 
     return True
 
+if __name__ == '__main__':
+
+    """ Demo of an existing model for reproducing results """
+
+    # backup existing scores
+    os.rename('../models/original/alexnet/no_occlusion/occlusion_robustness.csv',
+              '../models/original/alexnet/no_occlusion/occlusion_robustness_bak.csv')
+    # reproduce scores
+    score_model(model_dir='original/alexnet/no_occlusion', architecture='alexnet', num_procs=8, batch_size=64)
+    # average score on imagenet-occluded should be 0.0382475...
+    demo_scores = pd.read_csv('../models/original/alexnet/no_occlusion/occlusion_robustness.csv')
+    print(demo_scores[demo_scores.benchmark == 'ImageNet-Occluded'].score.mean())
+
+    """
+    # demo of a pretrained model not included in this paper
+    import torchvision
+    #make_dataset() # uncomment this if you wish to pre-apply occluders and save dataset to disk
+    weights_path = '../models/alexnet/pretrained_IMAGENET1K_V1/weights.pt'
+    if not op.isfile(weights_path):
+        os.makedirs(op.dirname(weights_path), exist_ok=True)
+        torch.hub.download_url_to_file(torchvision.models.AlexNet_Weights.IMAGENET1K_V1.url,
+                                   weights_path)
+    score_model(model_dir='alexnet/pretrained_IMAGENET1K_V1', architecture='alexnet', num_procs=8, batch_size=64)
+    """

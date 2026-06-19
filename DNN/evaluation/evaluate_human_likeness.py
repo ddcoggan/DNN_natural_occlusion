@@ -55,7 +55,6 @@ OCC_VARIABLES = ['visibility', 'occluder_class', 'occluder_color']
 OCC_COLORS = ['black', 'white']
 OCC_CLASSES = CFG.occluder_classes
 VISIBILITIES = CFG.visibilities
-RES_DIR = 'human_behavioral_exp'
 
 def get_transform(architecture, model_dir):
 
@@ -67,11 +66,11 @@ def get_transform(architecture, model_dir):
                             weights_attr).transforms()
         return transform
 
-    imsize = 256
+    imsize = 224
     transform = transforms.Compose([
         transforms.ToImage(),
         transforms.ToDtype(float32, scale=True),
-        transforms.Resize(imsize),
+        transforms.Resize(imsize, antialias=True),
         transforms.CenterCrop(imsize),  # in case resize is off by a pixel
         transforms.Grayscale(num_output_channels=3),  # should be redundant
         transforms.Normalize(mean=[0.445, 0.445, 0.445],
@@ -82,10 +81,10 @@ def get_transform(architecture, model_dir):
 
 def load_trials(drop_human=False, model_dir=None):
     if model_dir is None:
-        trials = pd.read_parquet(f'humans/trials.parquet')
+        trials = pd.read_parquet(f'../../humans/trials.parquet')
     else:
         trials = pd.read_parquet(op.join(
-            MODEL_BASE, model_dir, RES_DIR, 'trials.parquet'))
+            MODEL_BASE, model_dir, 'trials.parquet'))
         drop_human = False  # human data not present
 
     # drop human data
@@ -106,14 +105,14 @@ def load_trials(drop_human=False, model_dir=None):
 
 
 def list_images():
-    images = sorted(glob.glob(f'humans/images/final/*.png'))
+    images = sorted(glob.glob(f'../../humans/images/*.png'))
     return images
 
 
-def get_responses(model_dir, architecture, layers=('output'), batch_size=64,
+def get_responses(model_dir, architecture, layers=['output'], batch_size=64,
                   m=0, total_models=0, num_procs=1, overwrite=False):
 
-    results_dir = op.join(MODEL_BASE, model_dir, RES_DIR)
+    results_dir = op.join(MODEL_BASE, model_dir)
     os.makedirs(results_dir, exist_ok=True)
 
     out_path = f'{results_dir}/trials.parquet'
@@ -130,8 +129,7 @@ def get_responses(model_dir, architecture, layers=('output'), batch_size=64,
     non_output_layers = [l for l in layers if l != 'output']
     if len(non_output_layers):
         print(f'{now()} | Loading PCA and SVC objects...')
-        transfer_dir = op.join(MODEL_BASE, model_dir, RES_DIR,
-                               'transfer_learning')
+        transfer_dir = op.join(MODEL_BASE, model_dir, 'transfer_learning')
         svcs = {}
         for layer in non_output_layers:
             svc_path = op.join(transfer_dir, f'{layer}.pkl')
@@ -243,81 +241,6 @@ def get_predictions(trials, activations, readout_layer, pca_object=None,
 
     return trials
 
-
-def fit_visibility_curves(trials):
-
-    def _fit_curve(xvals, yvals, thr=.5):
-        try:
-            init_params = [max(yvals), np.median(xvals), 1, 0]
-            popt, pcov = curve_fit(
-                sigmoid, xvals, yvals, init_params, maxfev=int(10e5))
-            curve = sigmoid(np.linspace(0, 1, 1000), *popt)
-            threshold = sum(curve < thr) / 1000
-        except:
-            UserWarning('Curve fitting failed, returning NaNs')
-            popt, threshold = [np.nan] * 4, np.nan
-        return popt, threshold
-
-    curves = pd.DataFrame()
-    metric = trials.name[-1]
-
-    vis = VISIBILITIES + [1]
-    if metric != 'entropy':
-        vis = [0] + vis
-
-    # separate function for each occluder_class * occluder_color
-    for occluder_class, occluder_color in itp(OCC_CLASSES, OCC_COLORS):
-
-        yvals = (trials[
-                     (trials['occluder_class'] == occluder_class) &
-                     (trials['occluder_color'] == occluder_color)]
-                 .groupby('visibility').mean(
-            numeric_only=True).value.to_list())
-        yval_mean = np.mean(yvals)
-
-        unocc = trials[trials['visibility'] == 1].value.mean()
-        yvals += [unocc]
-        if metric != 'entropy':
-            yvals = [1 / 8] + yvals
-
-        # fit curve function
-        popt, threshold = _fit_curve(vis, yvals)
-        curves = pd.concat(
-            [curves, pd.DataFrame({
-                'subject': ['group'],
-                'occluder_class': [occluder_class],
-                'occluder_color': [occluder_color],
-                'L': [popt[0]],
-                'x0': [popt[1]],
-                'k': [popt[2]],
-                'b': [popt[3]],
-                'threshold_50': [threshold],
-                'mean': [yval_mean],
-            })]).reset_index(drop=True)
-
-    # single function across entire dataset
-    yvals = (trials.groupby('visibility').mean(
-        numeric_only=True).value.to_list())
-    yval_mean = np.mean(yvals)
-    if metric != 'entropy':
-        yvals = [1 / 8] + yvals
-    popt, threshold = _fit_curve(vis, yvals)
-    curves = pd.concat(
-        [curves, pd.DataFrame({
-            'subject': ['group'],
-            'occluder_class': ['all'],
-            'occluder_color': ['all'],
-            'L': [popt[0]],
-            'x0': [popt[1]],
-            'k': [popt[2]],
-            'b': [popt[3]],
-            'threshold_50': [threshold],
-            'mean': [yval_mean],
-        })]).reset_index(drop=True)
-
-    return curves
-
-
 def measure_human_likeness(trials_model, trials_human):
 
     human_likeness = pd.DataFrame()
@@ -333,6 +256,7 @@ def measure_human_likeness(trials_model, trials_human):
         [trials_model.visibility < 1]
         .groupby(['subject', 'occluder_class', 'occluder_color'])
         .agg({'value': 'mean'})
+        .reset_index()
         .rename(columns={'value': 'model_performance'}))
 
     # compare individual subjects with DNN
@@ -360,8 +284,14 @@ def measure_human_likeness(trials_model, trials_human):
             perf_hm.model_performance)[0,1]
         human_likeness = pd.concat([human_likeness, pd.DataFrame(dict(
             subject=[subject],
-            level=['condition-wise'],
-            metric_sim=['cond_pearson_r'],
+            metric=['Pearson R'],
+            value=[value]))])
+
+        # mean squared error
+        value = np.mean((perf_hm.human_performance - perf_hm.model_performance) ** 2)
+        human_likeness = pd.concat([human_likeness, pd.DataFrame(dict(
+            subject=[subject],
+            metric=['MSE'],
             value=[value]))])
 
     return human_likeness
@@ -384,7 +314,10 @@ def reshape_metrics(df, shape):
 def existing_results(path, layers, overwrite):
 
     if op.isfile(path):
-        df = pd.read_parquet(path, columns=['layer'])
+        if path.endswith('.parquet'):
+            df = pd.read_parquet(path)
+        elif path.endswith('.csv'):
+            df = pd.read_csv(path)
         if overwrite:
             return df[~df.layer.isin(layers)]
         elif all(layer in df.layer.unique() for layer in layers):
@@ -396,12 +329,12 @@ def existing_results(path, layers, overwrite):
 def analyse_performance(model_dir, m=0, total_models=0,
                         layers=('output'), overwrite=False, remake_plots=False):
 
-    results_dir = op.join(MODEL_BASE, model_dir, RES_DIR)
+    results_dir = op.join(MODEL_BASE, model_dir)
     mod_str = f'model {m + 1}/{total_models} at {model_dir}'
     groupby = ['layer', 'cycle']
 
     # measure human likeness
-    likeness_path = f'{results_dir}/human_likeness.parquet'
+    likeness_path = f'{results_dir}/human_likeness.csv'
     existing_likeness = existing_results(likeness_path, layers, overwrite)
     if existing_likeness is not True:
         print(f'{now()} | Analysing human likeness (exp1) | {mod_str}')
@@ -413,10 +346,45 @@ def analyse_performance(model_dir, m=0, total_models=0,
             .apply(measure_human_likeness, trials_human)
             .reset_index(level=groupby[:-1]))
         likeness = pd.concat([existing_likeness, likeness]).reset_index(drop=True)
-        likeness.to_parquet(likeness_path, index=False)
+        likeness.to_csv(likeness_path, index=False)
 
 if __name__ == '__main__':
-    get_responses(model_dir='alexnet/pretrained', architecture='alexnet')
-    analyse_performance(model_dir='alexnet/pretrained', m=1)
+
+    # make_dataset() # uncomment this if you wish to pre-apply occluders and save dataset to disk
+
+    """ Demo of an existing model for reproducing results """
+
+    # backup existing trials
+    os.rename('../models/original/alexnet/no_occlusion/trials.parquet',
+              '../models/original/alexnet/no_occlusion/trials_bak.parquet')
+    # reproduce trial responses
+    get_responses(model_dir='original/alexnet/no_occlusion', architecture='alexnet')
+    # average accuracy on the dataset should be 0.2313386...
+    demo_trials = load_trials(model_dir='original/alexnet/no_occlusion')
+    print(demo_trials.value.mean())
+
+    # backup existing human likeness estimates
+    os.rename('../models/original/alexnet/no_occlusion/human_likeness.csv',
+              '../models/original/alexnet/no_occlusion/human_likeness_bak.csv')
+    # reproduce estimates
+    analyse_performance(model_dir='original/alexnet/no_occlusion')
+    demo_likeness = pd.read_csv('../models/original/alexnet/no_occlusion/human_likeness.csv')
+    # average pearson correlation should be 0.4898081...
+    print(demo_likeness[demo_likeness.metric == 'Pearson R'].value.mean())
+    # average MSE should be 0.0962872...
+    print(demo_likeness[demo_likeness.metric == 'MSE'].value.mean())
+
+    """
+    # demo of a pretrained model not included in this paper
+    import torchvision
+    import torch
+    weights_path = '../models/alexnet/pretrained_IMAGENET1K_V1/weights.pt'
+    if not op.isfile(weights_path):
+        os.makedirs(op.dirname(weights_path), exist_ok=True)
+        torch.hub.download_url_to_file(torchvision.models.AlexNet_Weights.IMAGENET1K_V1.url,
+                                       weights_path)
+    get_responses(model_dir='alexnet/pretrained_IMAGENET1K_V1', architecture='alexnet')
+    analyse_performance(model_dir='alexnet/pretrained_IMAGENET1K_V1')
+    """
 
 

@@ -21,7 +21,7 @@ zipfile object. """
 
 for member in z.infolist():
     if member.filename.endswith('/weights.pt'):
-        target_path = member.filename.replace('weights/', 'DNN/models/')
+        target_path = '/'.join(['DNN', 'models', *member.filename.split('/')[1:]])
         print(target_path)
         if not op.isfile(target_path):
             with open(target_path, 'wb') as f:

@@ -1,7 +1,7 @@
 # Created by David Coggan on 2023 07 10
 from datetime import datetime
 
-MODEL_BASE = '/home/tonglab/david/DNN'
+MODEL_BASE = '../models'
 BENCHMARK_DIR = 'benchmarking'
 
 def now():

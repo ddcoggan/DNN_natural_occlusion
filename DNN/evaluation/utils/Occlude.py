@@ -26,7 +26,7 @@ class Occlude(torch.nn.Module):
                     occluder_dir: top-level directory for occluders dataset
                     form: The form of the occluder as a string, or list
                         thereof. Strings must match one of the directory names
-                        in the occlusion dataset, e.g. 'mudSplash'.
+                        in the occlusion dataset, e.g. 'mud_splash'.
                     probability: The probability (0.to 1.) that the occlusion
                         transform is applied to an image, e.g 0.8 will
                         occlude ~80% of the inputs.
@@ -39,7 +39,7 @@ class Occlude(torch.nn.Module):
                 Note: if a list is submitted, the occluder for each input image
                 will be configured by sampling randomly from the list.
         preload: If 'paths', occluder images are loaded from disk at runtime.
-            If 'tensors', occluder images are loaded from memory at runtime.
+            If 'tensors', occluder images are preloaded into RAM amd accessed at runtime.
     """
 
     def __init__(self, args, preload='tensors'):

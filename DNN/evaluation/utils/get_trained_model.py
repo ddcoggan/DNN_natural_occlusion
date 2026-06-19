@@ -54,8 +54,7 @@ def get_trained_model(model_dir, architecture,
 
         # get model and load weights normallu
         model = get_model(architecture, kwargs)
-        params_path = sorted(glob.glob(op.join(
-            MODEL_BASE, model_dir, 'params/???.pt*')))[-1]
+        params_path = op.join(MODEL_BASE, model_dir, 'weights.pt')
         model = load_params(params_path, model, 'model')
 
     return model

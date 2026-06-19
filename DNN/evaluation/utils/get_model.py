@@ -6,9 +6,9 @@ from types import SimpleNamespace
 import torch.nn as nn
 import math
 from pathlib import Path
-sys.path.append(op.expanduser('~/david/master_scripts/DNN'))
-import zoo
 from torchvision import models
+from DNN import cornet_s_plus
+
 
 def get_model(architecture, kwargs):
 
@@ -17,13 +17,12 @@ def get_model(architecture, kwargs):
 			model = getattr(models, architecture)(**kwargs)
 		except:
 			ValueError('kwargs not accepted for this model')
-	else:
+	elif architecture == 'cornet_s_plus':
 		try:
-			model = getattr(zoo, architecture)(**kwargs)
+			model = cornet_s_plus(**kwargs)
 		except:
-			try:
-				model = getattr(zoo, architecture)(kwargs)
-			except:
-				ValueError('kwargs not accepted for this model')
+			ValueError('kwargs not accepted for this model')
+	else:
+		raise ValueError('architecture not recognized')
 
 	return model

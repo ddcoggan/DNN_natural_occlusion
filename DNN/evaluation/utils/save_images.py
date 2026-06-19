@@ -9,8 +9,7 @@ import torch
 import sys
 from itertools import product as itp
 import shutil
-sys.path.append(os.path.expanduser('~/david/master_scripts/image'))
-from image_processing import tile
+from .image_processing import tile
 
 
 def save_image_batch(inputs, out_dir, labels=None, num_views=1, max_images=64):
