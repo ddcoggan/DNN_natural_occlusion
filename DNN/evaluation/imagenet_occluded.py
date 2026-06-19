@@ -204,7 +204,9 @@ if __name__ == '__main__':
               '../models/original/alexnet/no_occlusion/occlusion_robustness_bak.csv')
     # reproduce scores
     score_model(model_dir='original/alexnet/no_occlusion', architecture='alexnet', num_procs=8, batch_size=64)
-    # average score on imagenet-occluded should be 0.0382475...
+    # average score on imagenet-occluded should be 0.03824...
+    # scores may vary slightly due to random aspects of object / occluder pairings, particularly if occluders were
+    # applied on the fly during eval
     demo_scores = pd.read_csv('../models/original/alexnet/no_occlusion/occlusion_robustness.csv')
     print(demo_scores[demo_scores.benchmark == 'ImageNet-Occluded'].score.mean())
 
